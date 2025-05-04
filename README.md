@@ -21,7 +21,7 @@ python3 client.py 0.0.0.0 4444 # Byte size is optional defualt is 1024
 ## Features
 
 - [x] Powershell and Bash support
-- [ ] File uploading
+- [x] File uploading
 - [ ] To ensure automatic opening at the beginning
 - [ ] Multiple Session Support and Logging
 - [ ] Encryption

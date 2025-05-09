@@ -3,40 +3,61 @@ import platform
 import os
 
 
-def x11Screenshot(path):
-    resp = subprocess.run(["scrot",path])
-    return resp.returncode == 0
+class Screenshot:
+    def __init__(self):
+        self.system = platform.system().lower()
 
-def windowsScreenshot(path):
-    screenShotScript = f'''
-    Add-Type -AssemblyName System.Windows.Forms
-    Add-Type -AssemblyName System.Drawing
-    
-    $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-    $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
-    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-    $bitmap.Save("{path}", [System.Drawing.Imaging.ImageFormat]::Png)
-    $graphics.Dispose()
-    $bitmap.Dispose() '''
-    resp = subprocess.run(["powershell","-c",screenShotScript])
-    return resp.returncode == 0
+    def X11Screenshot(self,path):
+        resp = subprocess.run(["scrot",path],text=True,capture_output=True)
+        return resp.returncode == 0
 
-def macScreenshot(path):
-    resp = subprocess.run(["screencapture",path])
-    return resp.returncode == 0
+    def WindowsScreenshot(self,path):
+        screenShotScript = f'''
+        Add-Type -AssemblyName System.Windows.Forms
+        Add-Type -AssemblyName System.Drawing
+        
+        $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+        $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+        $bitmap.Save("{path}", [System.Drawing.Imaging.ImageFormat]::Png)
+        $graphics.Dispose()
+        $bitmap.Dispose() '''
+        resp = subprocess.run(["powershell","-c",screenShotScript],text=True,capture_output=True)
+        return resp.returncode == 0
 
-def screenshot(path):
-    system = platform.system().lower()
+    def MacScreenshot(self,path):
+        resp = subprocess.run(["screencapture",path],text=True,capture_output=True)
+        return resp.returncode == 0
 
-    if system == "windows":
-        return windowsScreenshot(path)
-    if system == "linux":
-        if os.getenv('XDG_SESSION_TYPE') == "wayland":
-            print("Doesn't have wayland support")
-            return False
-        return x11Screenshot(path)
-    if system == "darwin":
-        macScreenshot(path)
-    else:
-        raise Exception(f'Undefined Platform {system}')
+
+    def WaylandScreenshot(self,path):
+        for scshot in ["gnome-screenshot","spectacle","grim"]:
+            if subprocess.run(["which",scshot]).returncode == 0:
+                if scshot == "gnome-screenshot":
+                    resp = subprocess.run(["gnome-screenshot","-f",path],text=True,capture_output=True)
+                    return resp.returncode == 0
+                elif scshot == "spectacle":
+                    resp = subprocess.run(["spectacle","-n","-f",path],text=True,capture_output=True)
+                    return resp.returncode == 0
+                elif scshot == "grim":
+                    resp = subprocess.run(["grim",path],text=True,capture_output=True)
+                    return resp.returncode == 0
+                else:
+                    return False
+        return False
+
+    def screenshot(self,path):
+        if self.system == "windows":
+            return self.WindowsScreenshot(path)
+        
+        elif self.system == "linux":
+            if os.getenv('XDG_SESSION_TYPE') == "wayland":
+                return self.WaylandScreenshot(path)
+            return self.X11Screenshot(path)
+        
+        elif self.system == "darwin":
+            return self.MacScreenshot(path)
+        
+        else:
+            raise Exception(f'Undefined Platform {self.system}')

